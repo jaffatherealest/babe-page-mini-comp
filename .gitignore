@@ -1,3 +1,6 @@
 .env
 __pycache__
-
+token.json
+venv
+orig_script_files
+.DS_Store

@@ -42,31 +42,54 @@ def download_file_from_url(url):
     else:
         raise Exception(f"Failed to download file: {response.status_code}")
 
-def upload_file_to_drive(service, file_io, file_name, mime_type='video/mp4', folder_id='1-9Qn9nA50hnmxYaT3LfdgpJvMDB73SoM'):
+def upload_file_to_drive(service, file_io, file_name, mime_type='video/mp4', folder_id='1Ct9CM5BGYYBd35DyZxz8Ij7o-x9OWPSl'):
     """
+    Uploads a file to a specified Google Drive folder using the Google Drive API.
     
-    this function is using the google drive api to upload data to a select folder in google drive. 
-    in this example we are uploading mp4 video file
+    Args:
+        service: The authenticated Google Drive service instance.
+        file_io: A file-like object or file path (string) representing the video file to upload.
+        file_name: The name of the file to be uploaded to Google Drive.
+        mime_type: The MIME type of the file (default is 'video/mp4').
+        folder_id: The ID of the folder in Google Drive where the file will be uploaded.
+        
+    Returns:
+        The webViewLink for the uploaded file.
+    """
+    # If file_io is a string (file path), open the file in binary mode
+    if isinstance(file_io, str):
+        if not os.path.exists(file_io):
+            raise FileNotFoundError(f"File {file_io} not found.")
+        
+        file_io = open(file_io, 'rb')  # Open the file in binary mode
 
-    folder name = "Babe Page Reels [MIRROR RESCHANGE]"
-    https://drive.google.com/drive/u/0/folders/1-9Qn9nA50hnmxYaT3LfdgpJvMDB73SoM
+    try:
+        # Prepare file metadata and media upload object
+        file_metadata = {'name': file_name, 'parents': [folder_id]}
+        media = MediaIoBaseUpload(file_io, mimetype=mime_type, resumable=True)
+        
+        # Upload the file to Google Drive
+        uploaded_file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id, webViewLink'
+        ).execute()
+
+        # Set file permissions to "Anyone with the link"
+        permission = {
+            'type': 'anyone',
+            'role': 'reader',
+        }
+        service.permissions().create(fileId=uploaded_file.get('id'), body=permission).execute()
+
+        # Get and return the webViewLink
+        file_info = service.files().get(fileId=uploaded_file.get('id'), fields='webViewLink').execute()
+        return file_info.get('webViewLink')
     
-    """
-    file_metadata = {'name': file_name, 'parents': [folder_id]}
-    media = MediaIoBaseUpload(file_io, mimetype=mime_type, resumable=True)
-    file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-    
-    # Set permissions to "Anyone with the link"
-    permission = {
-        'type': 'anyone',
-        'role': 'reader',
-    }
-    service.permissions().create(fileId=file.get('id'), body=permission).execute()
-    
-    # Retrieve the updated file metadata to get the webViewLink
-    file = service.files().get(fileId=file.get('id'), fields='webViewLink').execute()
-    
-    return file.get('webViewLink')
+    finally:
+        # Ensure the file is closed if it was opened
+        if isinstance(file_io, io.IOBase):
+            file_io.close()
 
 def retrieve_drive_file_info(service, file_id):
     file_info = service.files().get(fileId=file_id, fields='id, name, webViewLink, thumbnailLink').execute()
